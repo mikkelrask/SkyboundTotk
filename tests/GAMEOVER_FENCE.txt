@@ -1,0 +1,73 @@
+TOTK 1.0.0 Game Over pause barrier regression
+
+Symptom: after death, Continue loses its selection outline and the Game Over
+screen keeps rendering. Retry is selected but the save never starts loading.
+
+Observed guest chain:
+  ExecuteWaitUIButtonInput produces Pa_Button_00.
+  Sequence_EventResult is set to Retry.
+  OneShotPauseMgrRequestPause requests GameOverPause.
+  ExecuteGenericWaitFramByPlug executes the final target=1 wait once.
+  At ~60 fps elapsed reaches ~0.5. Pause prevents further action updates.
+  At fixed 30 fps elapsed reaches 1 and the original sequence completes.
+
+Source compatibility fix: a64-kit/hos/totk_gameover.c
+Only the next one-frame wait belonging to the same AI instance after
+GameOverPause is completed. The original pause still runs.
+Other waits, other pause names, other AI instances and other game versions
+are unchanged. The marker is atomic because actions can switch worker threads.
+Unrelated AI waits do not consume it; the matching AI consumes it even if its
+target is not one frame.
+Ctx addresses cannot identify the AI instance: the actions use different
+register contexts even within this same sequence.
+
+Validation must use an actual game reproduction, not a unit test that merely
+asserts the fields the hook writes. The failure depends on guest event
+scheduling and pause timing. Use your own game data and a copied save at a
+cliff; no game assets or saves belong in a test commit.
+
+Controls:
+  HOS_GAMEOVER_FENCE=0: disable the source fix, original Game Over behavior.
+  HOS_GAMEOVER_FENCE_LOG=1: log each corrected pause barrier.
+  HOS_REALTIME=0 HOS_TARGET_INTERVAL=2: fixed 30 fps comparison.
+  Setting HOS_TARGET_INTERVAL=2 alone does not select fixed 30 fps when the
+  default real-time mode is enabled; confirm actual fps in the run log.
+
+Acceptance:
+  1. Default timing, fix disabled: die, Continue; confirm persistent Game Over.
+  2. Default timing, fix enabled: same save, die, Continue; confirm save reads,
+     restored position/health, gameplay and responsive input.
+  3. Repeat death/Continue in the same session, then Game Over Quit and confirm
+     the title screen is reached.
+  4. Keep original RomFS for all source-fix tests. Asset bypass experiments
+     isolate the cause but are not validation of the compiled source fix.
+
+Standalone concurrency/scope probe (Linux, after a normal lift/build):
+  clang -std=c11 -D_GNU_SOURCE -pthread \
+    -I a64-kit/hos/linux -I a64-kit/hos -I a64-kit/rt -I build/totk/gen \
+    tests/gameover_fence_probe.c a64-kit/hos/totk_gameover.c \
+    -o /tmp/gameover-fence-probe
+  /tmp/gameover-fence-probe
+  HOS_GAMEOVER_FENCE=0 /tmp/gameover-fence-probe
+
+This invokes the real hooks with the observed tagged-parameter layout, hands
+execution from a requesting pthread to a different thread, and interposes an
+unrelated AI wait. It tests handoff, scoping, single-use consumption and the
+disable switch. A temporary mutation making the marker thread-local fails
+its cross-thread assertion. It does not claim to test event scheduling;
+that still requires the integration reproduction above.
+
+Validated 2026-11-05 on Linux/AMD, TOTK 1.0.0:
+The gameplay runs used an experimental wider-guest-memory build. The same
+binary and copied saves were used for fix-enabled and fix-disabled controls;
+this patch contains no memory-layout changes.
+- Unchanged default timing: final wait stuck at ~0.5/1 frames; Game Over hang.
+- Fixed 30 fps without this fix: successful reload with original event assets.
+- Compiled atomic fix, default ~60 fps, original assets: two death/Continue
+  reloads and a third death followed by confirmed Quit to the title screen,
+  all in one session. Logged correction crossed worker threads each time.
+- Same compiled executable, HOS_GAMEOVER_FENCE=0: hang reproduced again.
+- Standalone concurrency/scope probe passes enabled and disabled modes.
+  Thread-local marker mutation fails the cross-thread regression assertion.
+- Does not establish long-session stability or resolve separate GPU/memory
+  crashes. Runtime integration was tested on Linux; other hosts remain untested.
