@@ -45,6 +45,7 @@ int rx_gpu_writes_pending(uint64_t gpu_va, uint64_t size);
 /* The same for dispatch-written memory only, without the renderer's lock (a hint: split mode's parsing thread). */
 int rx_gpu_written_hint(uint64_t gpu_va, uint64_t size);
 void rx_sync_gpu_writes(uint64_t gpu_va, uint64_t size);
+void rx_note_cpu_read(uint64_t gpu_va, uint64_t size);
 /* The command processor wrote guest memory (inline uploads, copies) while running a submission. */
 void rx_memory_written(uint64_t gpu_va, uint64_t size);
 

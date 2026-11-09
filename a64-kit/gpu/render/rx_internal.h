@@ -325,6 +325,8 @@ int64_t readback_to_guest(uint8_t* guest, const uint8_t* now, const uint8_t* was
 /// Guest memory gets what dispatches wrote into the range (and the GPU-written pages next to it) in the buffer cache:
 /// a GPU round trip, after the batches that wrote it were submitted.
 void buffer_cache_sync_to_guest(uint64_t gpu_va, uint64_t size);
+void buffer_cache_note_cpu_read(uint64_t gpu_va, uint64_t size);
+bool buffer_cache_cpu_read(uint64_t gpu_va, uint64_t size);
 void buffer_cache_scan();
 bool collect_written_pages(std::vector<uint32_t>& out);
 void buffer_cache_apply_written(const uint32_t* pages, size_t n);

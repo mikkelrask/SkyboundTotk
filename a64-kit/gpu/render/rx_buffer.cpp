@@ -23,6 +23,7 @@
 #include <windows.h>
 
 #include "rx_internal.h"
+#include "rx_cpu_read_ranges.h"
 
 extern "C" {
 uint8_t* hos_guest_base(void);
@@ -37,6 +38,8 @@ constexpr uint64_t kPage = 4096;
 constexpr uint64_t kStep = 8ull << 20;      // a segment starts every kStep bytes...
 constexpr uint64_t kSegment = 16ull << 20;  // ...and covers kSegment
 constexpr uint64_t kPagesPerSegment = kSegment / kPage;
+
+CpuReadRanges cpu_read_ranges;
 
 struct Segment {
     WGPUBuffer buffer = nullptr;
@@ -586,6 +589,21 @@ bool gpu_written(uint64_t gpu_va, uint64_t size) {
     return false;
 }
 
+void buffer_cache_note_cpu_read(uint64_t gpu_va, uint64_t size) {
+    uint64_t available = 0;
+    const uint8_t* host = hos_gpu_ptr(gpu_va, &available);
+    if (!host || !size || size > available) return;
+    const uint64_t guest = (uintptr_t)host - (uintptr_t)hos_guest_base();
+    cpu_read_ranges.note(guest, size);
+}
+bool buffer_cache_cpu_read(uint64_t gpu_va, uint64_t size) {
+    uint64_t available = 0;
+    const uint8_t* host = hos_gpu_ptr(gpu_va, &available);
+    if (!host || !size || size > available) return false;
+    const uint64_t guest = (uintptr_t)host - (uintptr_t)hos_guest_base();
+    return cpu_read_ranges.overlaps(guest, size);
+}
+
 void buffer_cache_sync_to_guest(uint64_t gpu_va, uint64_t size) {
     if (gpu_pages.empty() || !size) return;
     uint64_t avail = 0;
@@ -602,6 +620,7 @@ void buffer_cache_sync_to_guest(uint64_t gpu_va, uint64_t size) {
             break;
         }
     if (!s) return;
+    if (env_flag("RX_CPU_READ_COMPUTE_STREAM")) cpu_read_ranges.note(p0 * kPage, (p1 + 1 - p0) * kPage);
     // with the GPU-written pages around it (up to 1 MB each way): one round trip for the neighbouring arguments
     const uint64_t s0 = s->base / kPage, s1 = (s->base + s->size) / kPage - 1;
     for (int k = 0; k < 256 && p0 > s0 && gpu_pages[p0 - 1] && s->page_valid(p0 - 1 - s0); k++) p0--;

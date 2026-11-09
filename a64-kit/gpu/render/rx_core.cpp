@@ -3929,6 +3929,12 @@ std::deque<SyncRequest*> sync_requests;
 std::atomic<volatile uint32_t*> idle_word{nullptr};   // (rx_web_idle's wake word: sync requests bump it)
 #endif
 
+void rx_note_cpu_read(uint64_t gpu_va, uint64_t size) {
+    if (!started) return;
+    std::lock_guard lk(mu);
+    buffer_cache_note_cpu_read(gpu_va, size);
+}
+
 void rx_sync_gpu_writes(uint64_t gpu_va, uint64_t size) {
     if (!started) return;
 #ifdef __EMSCRIPTEN__

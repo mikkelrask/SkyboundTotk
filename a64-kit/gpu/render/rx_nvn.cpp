@@ -1381,9 +1381,11 @@ void rx_nvn_write_texels(const nvn_tex* t, unsigned level, unsigned layer0, cons
     std::lock_guard lk(nvn_mu);
     texel_copy(t, level, layer0, r, const_cast<uint8_t*>(src), row, img, true);
 }
-/* the CPU is about to read memory a shader may have written on the GPU (InvalidateMappedRange): nothing to do here.
-   TOTK invalidates ranges every frame; a GPU sync at each (as rx_sync_gpu_writes makes) halved the frame rate, and the
-   emulated path never synced there either: shader writes come back to guest memory by themselves (readbacks). */
-void rx_nvn_invalidate(uint64_t gpu, uint64_t size) { (void)gpu, (void)size; }
+/* Remember CPU-observed ranges so later compute writes can use the existing asynchronous
+   stream writeback path. This does not synchronously wait on each invalidation. */
+void rx_nvn_invalidate(uint64_t gpu, uint64_t size) {
+    if (RX_WEB || !size || !rx_active()) return;
+    if (env_flag("RX_CPU_READ_COMPUTE_STREAM")) rx_note_cpu_read(gpu, size);
+}
 
 }  // extern "C"

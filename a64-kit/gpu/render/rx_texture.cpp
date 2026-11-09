@@ -2098,17 +2098,47 @@ BoundTexture nvn_texture_resolve(const NvnState& s, uint64_t tex_handle, uint64_
     const uint64_t va = t.gpu, guest = nvn_gpu_guest(va);
     res.guest = guest;
     res.info = info;
+    static const bool reject_terrain_alias = env_flag("RX_REJECT_TERRAIN_FORMAT_ALIAS");
+    // Opt-in diagnostic: distinguish material-index data from an old normal-map target.
+    static const bool reject_material_alias = env_flag("RX_REJECT_TERRAIN_MATERIAL_ALIAS");
+    const Image* material_at = guest ? image_at(guest) : nullptr;
+    const bool material_alias = reject_material_alias && info.size.width == 260 && info.size.height == 260 &&
+                                wgpu_format(info.format) == WGPUTextureFormat_RGBA8Unorm && material_at &&
+                                material_at->rendered && material_at->format == WGPUTextureFormat_RG8Unorm;
     bool from_stale = false;
     Image* im = nullptr;
     // drawn by the GPU: the render target at the texture's storage
     if (Image* rt = guest ? image_at(guest) : nullptr;
         rt && rt->rendered && rt->width >= info.size.width && rt->height >= info.size.height &&
+        // Diagnostic A/B: do not substitute a two-channel target for a terrain height map.
+        !(reject_terrain_alias && info.size.width == 260 && info.size.height == 260 &&
+          info.format == PixelFormat::R16_UNORM && rt->format == WGPUTextureFormat_RG8Unorm) &&
         rt->dimension == info.dimension && rt->layers >= info.layers && rt->levels >= nvn_levels_used(info, vp) &&
         layers_fit(dim, rt->layers) &&
         ((dim == WGPUTextureViewDimension_3D) == (rt->dimension == WGPUTextureDimension_3D)) &&
         ((dim == WGPUTextureViewDimension_1D) == (rt->dimension == WGPUTextureDimension_1D)))
-        im = rt;   // (a texture whose layers or levels were drawn one by one is assembled below, as in texture_for_handle)
+    {
+        // Log only a target that passes every other reuse check. A mismatched image
+        // with insufficient mip levels was already rejected without this diagnostic.
+        if (material_alias) {
+            static std::unordered_set<uint64_t> reported;
+            if (reported.size() < 512 && reported.insert(guest).second)
+                hos_log("[TERRAIN-MATERIAL-TEST] rejected RG8 target for RGBA8 material map guest=%#llx frame=%lld",
+                        (unsigned long long)guest, (long long)frame_number);
+        }
+        else im = rt;
+    }
     if (!im) {   // from memory: decoded (and cached by what it was decoded from)
+        if (reject_terrain_alias && info.size.width == 260 && info.size.height == 260 &&
+            info.format == PixelFormat::R16_UNORM) {
+            if (Image* old = guest ? image_at(guest) : nullptr;
+                old && old->rendered && old->format == WGPUTextureFormat_RG8Unorm) {
+                static std::unordered_set<uint64_t> reported;
+                if (reported.size() < 512 && reported.insert(guest).second)
+                    hos_log("[TERRAIN-ALIAS-TEST] rejected RG8 target for R16 height map guest=%#llx frame=%lld",
+                            (unsigned long long)guest, (long long)frame_number);
+            }
+        }
         // (field by field: TexInfo's padding bytes are not initialized; the texture object's own fields, such as its
         // swizzle, do not change what is decoded: one decode per layout, as for a TIC)
         const uint32_t fields[] = {(uint32_t)info.format, (uint32_t)info.dimension, info.size.width, info.size.height,

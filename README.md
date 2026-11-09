@@ -179,3 +179,9 @@ These are reports and investigation notes, not a complete compatibility list. So
 NotRexed's original project code is offered under the [MIT License](LICENSE). The required AArch64 lifting/runtime and renderer sources originated in NotRexed's Rexcomp-based TOTKPort; unrelated Rexcomp kits and applications are not included.
 
 **The whole repository and combined build are not MIT-only.** The AArch64 kit includes GPL-licensed suyu/yuzu components and other third-party code under their own licenses. Their licenses and applicable GPL obligations still apply; see [NOTICE.md](NOTICE.md) and the individual license files. MIT does not grant rights to the game. Before publishing, verify that every contributor whose code is being offered under MIT has agreed, and review the applicable source and binary distribution obligations.
+
+## Experimental rendering comparison
+
+The opt-in candidates for [issue #33](https://github.com/NotRexed/SkyboundTotk/issues/33)
+are documented in [the rendering test guide](tests/EXPERIMENTAL_RENDERING.md),
+including Windows launch flags, known limitations and useful comparison reports.

@@ -351,6 +351,7 @@ void nvn_dispatch(NvnState& s, uint32_t x, uint32_t y, uint32_t z) {
     std::vector<WGPUBindGroupEntry> entries;
     std::vector<uint32_t> key = {(uint32_t)(uintptr_t)m, (uint32_t)((uintptr_t)m >> 32)};
     std::vector<BufferRef> written;
+    std::vector<std::pair<BufferRef, BufferRef>> streamed_results; // stream -> cache
     std::vector<std::pair<uint32_t, BufferRef>> storage;   // (binding, range) of each storage descriptor
     auto buffer_entry = [&](uint32_t b, WGPUBufferBindingType type, WGPUBuffer buf, uint64_t off, uint64_t size) {
         WGPUBindGroupLayoutEntry e{};
@@ -412,7 +413,22 @@ void nvn_dispatch(NvnState& s, uint32_t x, uint32_t y, uint32_t z) {
         uint64_t size = (uint64_t)raw_size + (raw_va - va);
         size = std::clamp<uint64_t>((size + 3) & ~3ull, 16, 16ull << 20);
         BufferRef ref = raw_va ? guest_buffer(va, size) : BufferRef{};
-        if (!ref.buffer || ref.offset % dev.limits.minStorageBufferOffsetAlignment) {
+        // Diagnostic: use the established asynchronous writeback path for CPU-observed
+        // compute outputs. Restrict this first experiment to one storage descriptor,
+        // so redirecting the binding cannot break aliases between descriptors.
+        if (ref.buffer && d.is_written && info.storage_buffers_descriptors.size() == 1 &&
+            env_flag("RX_CPU_READ_COMPUTE_STREAM") && buffer_cache_cpu_read(va, size)) {
+            const uint64_t off = stream_rw.alloc(size, dev.limits.minStorageBufferOffsetAlignment);
+            if (off == UINT64_MAX) return count("cs_space");
+            gpu_read(va, stream_rw.at(off), size); // baseline for the normal GPU/CPU merge
+            end_render_pass("pe_cpu_read_compute");
+            ce_copy_buffer_to_buffer(encoder(), ref.buffer, ref.offset, stream_rw.buffer, off, size);
+            BufferRef stream{stream_rw.buffer, off, size};
+            streamed_results.push_back({stream, ref});
+            writeback_after_batch(off, size, va);
+            ref = stream;
+            count("cpu_read_compute_streams");
+        } else if (!ref.buffer || ref.offset % dev.limits.minStorageBufferOffsetAlignment) {
             count("cs_ssbo_copied");
             const uint64_t off = stream_rw.alloc(size, dev.limits.minStorageBufferOffsetAlignment);
             if (off == UINT64_MAX) return count("cs_space");
@@ -527,6 +543,10 @@ void nvn_dispatch(NvnState& s, uint32_t x, uint32_t y, uint32_t z) {
     cp_dispatch(pass, std::min(x, max), std::min(y, max), std::min(z, max));
     cp_end(pass);
     if (group) wgpuBindGroupRelease(group);
+    for (const auto& [stream, cached] : streamed_results) {
+        ce_copy_buffer_to_buffer(encoder(), stream.buffer, stream.offset, cached.buffer, cached.offset, cached.size);
+        written.push_back(cached);
+    }
     for (const BufferRef& w : written) buffer_cache_gpu_written(w);
     if (!written.empty()) dispatch_write_epoch++;
     count("dispatches");
