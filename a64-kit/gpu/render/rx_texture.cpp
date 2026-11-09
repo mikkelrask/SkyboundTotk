@@ -1296,26 +1296,36 @@ bool layers_fit(WGPUTextureViewDimension dim, uint32_t layers) {
 /// mip chains drawn as separate render targets at their places in the texture's memory): those subresources come
 /// from the render targets (copied when they were drawn again since), the rest from guest memory.
 /// A 3D texture decoded from memory takes the slices drawn as render targets (nvn_target files them under
-/// nvn_slice_key): each slice whose image was drawn since the last copy is copied into its depth slice (level 0).
+/// nvn_slice_key): each slice drawn since the last copy is copied into its depth slice at the matching mip level.
 void assemble_3d_slices(Image& im, const TexInfo& info, uint64_t guest) {
     if (!guest || im.dimension != WGPUTextureDimension_3D || im.assembled_passes == pass_count()) return;
     im.assembled_passes = pass_count();
     const uint32_t depth = std::min<uint32_t>(info.size.depth, im.layers);
-    if (im.sub_versions.size() != depth) im.sub_versions.assign(depth, 0);
+    const uint32_t levels = std::min<uint32_t>(info.levels, im.levels);
+    uint32_t slices = 0;
+    for (uint32_t level = 0; level < levels; level++) slices += std::max(1u, depth >> level);
+    if (im.sub_versions.size() != slices) im.sub_versions.assign(slices, 0);
     bool ended = false;
-    for (uint32_t z = 0; z < depth; z++) {
-        Image* rt = image_at(nvn_slice_key(guest, z));
-        if (!rt || !rt->rendered || rt->width != im.width || rt->height != im.height || rt->format != im.format) continue;
-        if (im.sub_versions[z] == rt->version) continue;
-        im.sub_versions[z] = rt->version;
-        if (!ended) end_render_pass("pe_assemble"), ended = true;
-        WGPUTexelCopyTextureInfo src{}, dst{};
-        src.texture = rt->tex;
-        dst.texture = im.tex;
-        dst.origin = {0, 0, z};
-        const WGPUExtent3D one{im.width, im.height, 1};
-        ce_copy_texture_to_texture(encoder(), &src, &dst, &one);
-        count("assembled_3d_slices");
+    uint32_t index = 0;
+    for (uint32_t level = 0; level < levels; level++) {
+        const uint32_t w = std::max(1u, im.width >> level), h = std::max(1u, im.height >> level);
+        // nvn_target stores each mip's slices at that mip's guest address.
+        const uint64_t address = guest + subresource_offset(info, 0, level);
+        for (uint32_t z = 0; z < std::max(1u, depth >> level); z++, index++) {
+            Image* rt = image_at(nvn_slice_key(address, z));
+            if (!rt || !rt->rendered || rt->width != w || rt->height != h || rt->format != im.format) continue;
+            if (im.sub_versions[index] == rt->version) continue;
+            im.sub_versions[index] = rt->version;
+            if (!ended) end_render_pass("pe_assemble"), ended = true;
+            WGPUTexelCopyTextureInfo src{}, dst{};
+            src.texture = rt->tex;
+            dst.texture = im.tex;
+            dst.mipLevel = level;
+            dst.origin = {0, 0, z};
+            const WGPUExtent3D one{w, h, 1};
+            ce_copy_texture_to_texture(encoder(), &src, &dst, &one);
+            count("assembled_3d_slices");
+        }
     }
 }
 

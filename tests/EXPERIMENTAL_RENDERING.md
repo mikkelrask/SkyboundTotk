@@ -1,6 +1,7 @@
 # Experimental rendering candidates for issue #33
 
-These changes are opt-in and intended for comparison testing, including Windows.
+The terrain and compute changes are opt-in and intended for comparison testing,
+including Windows. The 3D mip assembly correction is enabled by default.
 They are not a complete texture-ownership or GPU-memory fix.
 
 ## Build and enable
@@ -43,6 +44,11 @@ The environment variables above apply to launches from that shell, not to a
 separate Steam/Heroic launch. Optional fullscreen/ultrawide settings are unchanged.
 
 ## What changes
+
+- 3D render-target assembly now copies each mip level and its shrinking depth
+  slices, using that level's guest address and tracking versions per mip/slice.
+  Previously only level zero was assembled, leaving GPU-rendered lower mips
+  absent from the sampled volume. This correction needs no environment flag.
 
 - `RX_REJECT_TERRAIN_FORMAT_ALIAS`: for 260x260 R16 height maps, bypass an old
   rendered RG8 image at the same guest address and use the existing decode path.
@@ -121,3 +127,40 @@ It covers page rounding, overlap endpoints, duplicate registration, capacity,
 size limits and overflow rejection. It does not validate GPU scheduling or visual
 correctness. Runtime `RX_STATS=1` exposes `cpu_read_compute_streams`; alias-guard
 logs use `[TERRAIN-ALIAS-TEST]` and `[TERRAIN-MATERIAL-TEST]` when exercised.
+
+## 3D volume mip regression and flight test
+
+```sh
+python3 tests/texture_3d_mip_assembly.py
+```
+
+Requires Python 3 and a C++20 compiler named `c++` with AddressSanitizer and
+UndefinedBehaviorSanitizer. The test extracts the actual assembly function from
+`rx_texture.cpp` and runs it with mocked image lookup and GPU copy recording.
+It verifies mip/slice destinations, shrinking dimensions, per-slice updates,
+unchanged passes, missing/mismatched sources, and single-level/non-cubic volumes.
+Layout offsets are stubbed: this test does not validate the layout calculator
+or GPU execution. The original function fails: expected 63 mip/slice copies for
+a 32x32x32 six-level volume, got 32. The corrected function passes. LeakSanitizer
+is disabled in this harness; address and undefined-behaviour checks remain on.
+
+In a captured failing Zonai wing expiry frame, pixel history identified shader
+discard at a missing wing section. A sampled 32x32x32 RGBA8 noise volume had data
+in mip 0 but zero-filled mips 1 through 5. A replay-only diagnostic forcing that
+noise sample to mip 0 restored most missing geometry; this override is NOT part
+of the patch.
+
+With the assembly correction in the combined local Linux build, a player flew a
+wing through the warning animation and captured the pre-warning, green, and
+regular-colour warning phases. The entire wing remained visible. Replay of the
+green-phase capture confirmed an identical mip-0 SHA256 to the original volume
+and populated mips 1 through 5. Red-channel ranges were 35..239, 60..192, 90..157,
+127..127 and 123..123 respectively, versus all zero before. This is one successful
+flight test on RX 9070 XT; Windows and broader effects remain unverified.
+
+![Before: missing wing sections during expiry](../reports/volume-mips/before-warning.png)
+![After: intact green warning phase](../reports/volume-mips/after-warning.png)
+![After: intact regular-colour warning phase](../reports/volume-mips/after-normal-phase.png)
+
+These are different flights/cameras, not pixel-aligned before/after frames.
+Raw captures and game assets are not included.

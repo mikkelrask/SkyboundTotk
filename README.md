@@ -185,3 +185,5 @@ NotRexed's original project code is offered under the [MIT License](LICENSE). Th
 The opt-in candidates for [issue #33](https://github.com/NotRexed/SkyboundTotk/issues/33)
 are documented in [the rendering test guide](tests/EXPERIMENTAL_RENDERING.md),
 including Windows launch flags, known limitations and useful comparison reports.
+The branch also corrects 3D render-target mip assembly, which fixes missing Zonai
+wing sections during expiry in the tested Linux run; this correction is always enabled.
