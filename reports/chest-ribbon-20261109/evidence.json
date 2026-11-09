@@ -1,0 +1,266 @@
+{
+  "capture": 15180,
+  "offending_draws": [
+    15873,
+    15874
+  ],
+  "guest_buffer": "0x20fe0da0",
+  "writer_function": "f_080236f0",
+  "writer_operation": "64-bit store from vreg[0] to x24-40; observed center Y is upper 32 bits",
+  "capture_checkpoint_serial": 84680866,
+  "points": [
+    {
+      "record": 101,
+      "captured_gpu_y": 17.75042152404785,
+      "stores_after_last_gpu_declaration": 7,
+      "all_observed_store_values_zero": true,
+      "merge_observations": 8,
+      "all_merge_observations_skip_zero": true
+    },
+    {
+      "record": 102,
+      "captured_gpu_y": 13.276124954223633,
+      "stores_after_last_gpu_declaration": 7,
+      "all_observed_store_values_zero": true,
+      "merge_observations": 8,
+      "all_merge_observations_skip_zero": true
+    },
+    {
+      "record": 103,
+      "captured_gpu_y": 14.203190803527832,
+      "stores_after_last_gpu_declaration": 7,
+      "all_observed_store_values_zero": true,
+      "merge_observations": 8,
+      "all_merge_observations_skip_zero": true
+    },
+    {
+      "record": 104,
+      "captured_gpu_y": 10.281953811645508,
+      "stores_after_last_gpu_declaration": 7,
+      "all_observed_store_values_zero": true,
+      "merge_observations": 8,
+      "all_merge_observations_skip_zero": true
+    },
+    {
+      "record": 105,
+      "captured_gpu_y": 8.82214641571045,
+      "stores_after_last_gpu_declaration": 7,
+      "all_observed_store_values_zero": true,
+      "merge_observations": 8,
+      "all_merge_observations_skip_zero": true
+    },
+    {
+      "record": 106,
+      "captured_gpu_y": 12.225924491882324,
+      "stores_after_last_gpu_declaration": 7,
+      "all_observed_store_values_zero": true,
+      "merge_observations": 8,
+      "all_merge_observations_skip_zero": true
+    },
+    {
+      "record": 107,
+      "captured_gpu_y": 5.719515323638916,
+      "stores_after_last_gpu_declaration": 7,
+      "all_observed_store_values_zero": true,
+      "merge_observations": 8,
+      "all_merge_observations_skip_zero": true
+    },
+    {
+      "record": 108,
+      "captured_gpu_y": 10.431052207946777,
+      "stores_after_last_gpu_declaration": 7,
+      "all_observed_store_values_zero": true,
+      "merge_observations": 8,
+      "all_merge_observations_skip_zero": true
+    }
+  ],
+  "replay_intervention": "Conditional zero of only center-Y loads for records101..108 in buffer0x20fe0da0 removes the towards-camera streak in capture15180; normal sideways trails remain. Shader bytes identical to earlier captured shader.",
+  "limitations": [
+    "CPU snapshot frame15181 uses alternate buffer0x20ff3040, while GPU frame15180 uses0x20fe0da0; source snapshot is not treated as frame-exact.",
+    "The guest-store and merge logs establish repeated same-value writes and skips at the actual captured GPU addresses over the surrounding interval.",
+    "GPU ownership events declare a written range; they do not identify which earlier GPU instruction produced each value.",
+    "Replay intervention demonstrates the eight values cause the streak; a general runtime ownership fix still needs implementation and tests."
+  ],
+  "runtime_verification": [
+    {
+      "event": 13996,
+      "records": [
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107,
+        108
+      ],
+      "gpu_y": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "draw_marker_verified": false
+    },
+    {
+      "event": 13997,
+      "records": [
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107,
+        108
+      ],
+      "gpu_y": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "draw_marker_verified": false
+    },
+    {
+      "event": 14000,
+      "records": [
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107,
+        108
+      ],
+      "gpu_y": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "draw_marker_verified": false
+    },
+    {
+      "event": 14001,
+      "records": [
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107,
+        108
+      ],
+      "gpu_y": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "draw_marker_verified": false
+    }
+  ],
+  "performance": {
+    "v13": {
+      "binary_sha256": "05ac3aeb76ccbbb3b55dde085f32cd5e3bc9cc2c9e11b444711730e5fab61f8b",
+      "fps_samples": [
+        60.0,
+        60.0,
+        60.0,
+        60.0,
+        60.0,
+        60.0,
+        60.0,
+        60.0,
+        60.0,
+        60.0,
+        60.0,
+        60.0,
+        60.0,
+        60.0,
+        60.0,
+        60.0,
+        60.0,
+        60.0
+      ],
+      "median": 60.0,
+      "sample_seconds": 90
+    },
+    "genuinely_disabled": {
+      "binary_sha256": "6c5db71f4ba5d334fde2293eb82a2141f031f59d13ce414463b0975d568f6c2a",
+      "fps_samples": [
+        60.0,
+        60.0,
+        59.9,
+        59.9,
+        60.1,
+        60.0,
+        60.0,
+        60.0,
+        60.0,
+        60.0,
+        60.0,
+        60.0,
+        60.0,
+        60.0,
+        60.0,
+        59.9,
+        60.2,
+        59.9
+      ],
+      "median": 60.0,
+      "sample_seconds": 90
+    },
+    "range_candidate_enabled": {
+      "binary_sha256": "dac245524e5bbb93d3a9fdafbf475e774dcaf03a807f3a5fb3dada8328fb78cd",
+      "fps_samples": [
+        39.7,
+        38.8,
+        38.9,
+        39.6,
+        39.3,
+        41.3,
+        42.4,
+        40.9,
+        40.1,
+        41.9,
+        41.9,
+        43.1,
+        44.6,
+        44.2,
+        43.7,
+        43.2,
+        41.0,
+        43.4
+      ],
+      "median": 41.599999999999994,
+      "sample_seconds": 90
+    }
+  },
+  "performance_limits": [
+    "Separate stationary runs at matching scene/settings, not a complete gameplay benchmark.",
+    "Earlier zero-valued off controls are invalid: renderer used presence semantics.",
+    "Some earlier enabled trials involved user input; excluded from headline comparison.",
+    "V13 performance baseline used identical launch settings, with ribbon-specific switch set to 0. The successful narrow-fix capture is separate.",
+    "Broader candidate is not accepted: performance remains below baseline and earlier enabled builds reproduced the streak."
+  ]
+}
